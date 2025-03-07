@@ -6,6 +6,7 @@
 #include <BLEDevice.h>
 #include <BLEScan.h>
 #include <HardwareSerial.h>
+#include <SoftwareSerial.h>
 #define TINY_GSM_MODEM_SIM800
 #include <TinyGsmClient.h>
 
@@ -17,12 +18,11 @@ void publishITagStatus(bool);
 void connectToWiFi();
 void connectToMQTT();
 void batteryPercentage();
-void sendCommand(String, int);
-void initSIM800L();
 bool scanForBLE();
 void iTagDetected();
 void iTagNotDetected();
 void connectToGSM();
+void wakeUpSIM800L();
 void callback(char *, byte *, unsigned int);
 
 
@@ -32,25 +32,26 @@ RTC_DATA_ATTR int bootCount = 0;  // counting the times that esp32 wakes up
 
 #define GSM_RX 9   // SIM800 TX -> ESP32 GPIO
 #define GSM_TX 10   // SIM800 RX -> ESP32 GPIO
-#define GPS_RX 20   // GPS 6M NEO TX -> ESP32 RX
-#define GPS_TX 21   // GPS 6M NEO RX -> ESP32 TX
+#define GPS_RX 7   // GPS 6M NEO TX -> ESP32 RX
+#define GPS_TX 6   // GPS 6M NEO RX -> ESP32 TX
 #define WAKEUP_PIN 2
 #define BATTERY_PIN 0 // GPIO0 for battery status via ADC
 #define SCAN_TIME 5  // Χρόνος σάρωσης BLE (σε δευτερόλεπτα)
 #define PUBLISH_INTERVAL 10000  // 10 δευτερόλεπτα
-#define GSM_BAUD 115200
+#define GSM_BAUD 9600
 #define ITAG_MAC_ADDRESS "ff:ff:c2:11:ec:17" // iTag's MAC address
 
 // GPS/SIM Initilization
 TinyGPSPlus gps;
 HardwareSerial gpsSerial(0);  // Hardware Serial 0 for GPS
 HardwareSerial simSerial(1);  // UART1 for SIM800L
+// SoftwareSerial simSerial(GSM_RX, GSM_TX);  // Software Serial for SIM800L
 
-TinyGsm modem(simSerial);
+TinyGsm modem(gpsSerial);
 TinyGsmClient client(modem);  // when using GSM
-WiFiClient wifiClient;  // when using WiFi
-// PubSubClient mqttClient(client);  // when using GSM
-PubSubClient mqttClient(wifiClient);  // when using WiFi
+// WiFiClient wifiClient;  // when using WiFi
+PubSubClient mqttClient(client);  // when using GSM
+// PubSubClient mqttClient(wifiClient);  // when using WiFi
 
 
 
@@ -64,7 +65,7 @@ const char* mqttPassword = "mqtt_pass"; // MQTT Password(optional)
 
 const char* GPRS_USER = "";  // Κενό αν δεν απαιτείται
 const char* GPRS_PASS = "";  // Κενό αν δεν απαιτείται
-const char* APN = "internet.vodafone.gr";  // Π.χ. "internet" για COSMOTE/Vodafone
+const char* APN = "internet";  // Π.χ. "internet" για COSMOTE/Vodafone
 
 // WiFi Settings
 const char* ssid = "FREE_INTERNET 2.1";     // WiFi SSID
@@ -94,7 +95,7 @@ void IRAM_ATTR wakeupISR() {
 void setup() {
   // Serial communication for debugging
   Serial.begin(115200);
-  delay(1000);  //Take some time to open up the Serial Monitor
+  // delay(1000);  //Take some time to open up the Serial Monitor
 
   //Increment boot number and print it every reboot
   ++bootCount;
@@ -110,11 +111,8 @@ void setup() {
   simSerial.begin(GSM_BAUD, SERIAL_8N1, GSM_RX, GSM_TX);
   simSerial.println("simSerial");
 
-  initSIM800L();
-  delay(2000);
-
   // WiFi connection
-  connectToWiFi();
+  // connectToWiFi();
 
   // Setting Battery Pin
   pinMode(BATTERY_PIN, INPUT);
@@ -126,6 +124,8 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(WAKEUP_PIN), wakeupISR, CHANGE);
 
   Serial.println("ESP32 is awake!");
+
+  wakeUpSIM800L();
 
   connectToGSM();
   connectToMQTT();
@@ -369,7 +369,6 @@ void connectToMQTT() {
   // Ρυθμίσεις MQTT
   mqttClient.setServer(mqttBroker, mqttPort);
   mqttClient.setCallback(callback);
-  // sendCommand("AT+CIPSTART=\"TCP\",\"192.168.1.161\",\"1883\"", 5000);
 
   // if (simSerial.available()) {
   //   String response = simSerial.readString();
@@ -397,45 +396,39 @@ void connectToMQTT() {
 // Σύνδεση GSM & GPRS
 void connectToGSM() {
   Serial.println("Connecting to GSM...");
-  simSerial.begin(GSM_BAUD, SERIAL_8N1, GSM_RX, GSM_TX);
-  modem.restart();
-
-  if (!modem.waitForNetwork()) {
-    Serial.println("GSM Network Not Found!");
-    return;
+  // simSerial.begin(GSM_BAUD, SERIAL_8N1, GSM_RX, GSM_TX);
+  gpsSerial.begin(9600, SERIAL_8N1, GPS_RX, GPS_TX);
+  
+  Serial.println("🔹 Ενεργοποίηση SIM800L...");
+  if (!modem.restart()) {
+      Serial.println("❌ Αποτυχία επανεκκίνησης του modem!");
+      return;
   }
 
-  Serial.println("✅ Connected to GSM Network!");
-
+  Serial.println("📡 Σύνδεση στο GPRS...");
   if (!modem.gprsConnect(APN, GPRS_USER, GPRS_PASS)) {
-    Serial.println("GPRS Failed!");
-    return;
+      Serial.println("❌ Αποτυχία σύνδεσης στο GPRS!");
+      return;
   }
+  Serial.println("✅ Συνδεθήκαμε στο κινητό δίκτυο!");
 
-  Serial.println("✅ GPRS Connected!");
+  // modem.restart();
+
+  // if (!modem.waitForNetwork()) {
+  //   Serial.println("GSM Network Not Found!");
+  //   return;
+  // }
+
+  // Serial.println("✅ Connected to GSM Network!");
+
+  // if (!modem.gprsConnect(APN, GPRS_USER, GPRS_PASS)) {
+  //   Serial.println("GPRS Failed!");
+  //   return;
+  // }
+
+  // Serial.println("✅ GPRS Connected!");
 }
 
-
-void sendCommand(String command, int delayTime) {
-  simSerial.println(command);
-  delay(delayTime);
-  while (simSerial.available()) {
-    Serial.write(simSerial.read());
-  }
-}
-
-void initSIM800L() {
-  Serial.println("Initializing SIM800L...");
-
-  sendCommand("AT", 1000);            // Check SIM800L
-  sendCommand("AT+CFUN=1", 1000);      // Full functionality
-  sendCommand("AT+CPIN?", 1000);       // Check SIM status
-  sendCommand("AT+CREG?", 1000);       // Check network registration
-  sendCommand("AT+CIPSHUT", 2000);     // Reset any previous connection
-  sendCommand("AT+CSTT=\"vodafone.internet.gr\"", 2000);  // Set APN
-  sendCommand("AT+CIICR", 3000);       // Start internet connection
-  sendCommand("AT+CIFSR", 1000);       // Get local IP
-}
 
 
 // Method to print the reason by which ESP32 has been awaken from sleep 
@@ -466,4 +459,23 @@ void callback(char *topic, byte *payload, unsigned int length) {
   }
   Serial.println();
   Serial.println("-----------------------");
+}
+
+
+void wakeUpSIM800L() {
+  Serial.println("🔹 Ξύπνημα του SIM800L...");
+  simSerial.println("AT");  // Στείλε οποιαδήποτε εντολή για να ξυπνήσει
+  delay(400);
+  simSerial.println("AT+CSCLK=0");
+  delay(1000);
+
+  while (simSerial.available()) {
+      String response = simSerial.readString();
+      Serial.println("📢 SIM800L: " + response);
+      if (response.indexOf("OK") != -1) {
+          Serial.println("✅ Το SIM800L ξύπνησε!");
+          return;
+      }
+  }
+  Serial.println("⚠️ Δεν υπήρξε απάντηση από το SIM800L.");
 }
