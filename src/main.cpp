@@ -30,16 +30,18 @@ void callback(char *, byte *, unsigned int);
 #define SLEEP_TIME  5 * 60 * 1000000ULL   // Time ESP32 will go to sleep (in seconds)
 RTC_DATA_ATTR int bootCount = 0;  // counting the times that esp32 wakes up
 
-#define GSM_RX 9   // SIM800 TX -> ESP32 GPIO
-#define GSM_TX 10   // SIM800 RX -> ESP32 GPIO
-#define GPS_RX 7   // GPS 6M NEO TX -> ESP32 RX
-#define GPS_TX 6   // GPS 6M NEO RX -> ESP32 TX
+#define GSM_RX 6   // SIM800 TX -> ESP32 GPIO
+#define GSM_TX 7   // SIM800 RX -> ESP32 GPIO
+#define GPS_RX 20   // GPS 6M NEO TX -> ESP32 RX
+#define GPS_TX 21   // GPS 6M NEO RX -> ESP32 TX
 #define WAKEUP_PIN 2
 #define BATTERY_PIN 0 // GPIO0 for battery status via ADC
 #define SCAN_TIME 5  // Χρόνος σάρωσης BLE (σε δευτερόλεπτα)
 #define PUBLISH_INTERVAL 10000  // 10 δευτερόλεπτα
-#define GSM_BAUD 9600
+#define GSM_BAUD 115200
 #define ITAG_MAC_ADDRESS "ff:ff:c2:11:ec:17" // iTag's MAC address
+
+#define PIN 3  // Ορίζουμε το GPIO2
 
 // GPS/SIM Initilization
 TinyGPSPlus gps;
@@ -47,7 +49,7 @@ HardwareSerial gpsSerial(0);  // Hardware Serial 0 for GPS
 HardwareSerial simSerial(1);  // UART1 for SIM800L
 // SoftwareSerial simSerial(GSM_RX, GSM_TX);  // Software Serial for SIM800L
 
-TinyGsm modem(gpsSerial);
+TinyGsm modem(simSerial);
 TinyGsmClient client(modem);  // when using GSM
 // WiFiClient wifiClient;  // when using WiFi
 PubSubClient mqttClient(client);  // when using GSM
@@ -107,6 +109,9 @@ void setup() {
   // Setting Serial Communication fro GPS and Sim modules
   gpsSerial.begin(9600, SERIAL_8N1, GPS_RX, GPS_TX); // RX=GPIO20, TX=GPIO21 για ESP32-C3
   gpsSerial.println("gpsSerial");
+
+  pinMode(PIN, OUTPUT);  // Ορίζουμε το GPIO3 ως έξοδο
+  digitalWrite(PIN, HIGH);  // Κάνουμε το PIN HIGH
 
   simSerial.begin(GSM_BAUD, SERIAL_8N1, GSM_RX, GSM_TX);
   simSerial.println("simSerial");
@@ -397,7 +402,7 @@ void connectToMQTT() {
 void connectToGSM() {
   Serial.println("Connecting to GSM...");
   // simSerial.begin(GSM_BAUD, SERIAL_8N1, GSM_RX, GSM_TX);
-  gpsSerial.begin(9600, SERIAL_8N1, GPS_RX, GPS_TX);
+  simSerial.begin(GSM_BAUD, SERIAL_8N1, GSM_RX, GSM_TX);
   
   Serial.println("🔹 Ενεργοποίηση SIM800L...");
   if (!modem.restart()) {
