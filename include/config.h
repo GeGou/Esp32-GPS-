@@ -12,26 +12,13 @@
 #define TINY_GSM_MODEM_SIM800
 #include <TinyGsmClient.h>
 
-// UARTs initialization
-// TinyGPSPlus gps;
-// HardwareSerial gpsSerial(0);  // Hardware Serial 0 for GPS
-// HardwareSerial simSerial(1);  // Hardware Serial 0 for SIM800L
-// TinyGsm modem(simSerial);
-// TinyGsmClient client(modem);  // when using GSM
-// PubSubClient mqttClient(client);  // when using GSM
-
 // Global Variables (Declared as `extern`)
-// extern WiFiClient wifiClient;
 extern TinyGsm modem;
 extern TinyGsmClient client;
 extern PubSubClient mqttClient;
 extern TinyGPSPlus gps;
 extern HardwareSerial gpsSerial;  // For GSM module
 extern HardwareSerial simSerial;  // For GSM module
-
-
-// WiFiClient wifiClient;  // when using WiFi
-// PubSubClient mqttClient(wifiClient);  // when using WiFi
 
 extern bool stopPublishing;  // Variable to stop publishing GPS data
 

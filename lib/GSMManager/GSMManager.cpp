@@ -9,14 +9,6 @@
 #define TINY_GSM_MODEM_SIM800
 #include <TinyGsmClient.h>
 
-HardwareSerial simSerial(1);  // Hardware Serial 0 for SIM800L
-TinyGsm modem(simSerial);
-TinyGsmClient client(modem);  // when using GSM
-PubSubClient mqttClient(client);  // when using GSM
-
-// WiFiClient wifiClient;  // when using WiFi
-// PubSubClient mqttClient(wifiClient);  // when using WiFi
-
 void connectToGSM() {
     Serial.println("Connecting to GSM...");
     simSerial.begin(GSM_BAUD, SERIAL_8N1, GSM_RX, GSM_TX);
@@ -42,7 +34,7 @@ void connectToGSM() {
 void wakeUpSIM800L() {
     Serial.println("Waking up SIM800L...");
     simSerial.println("AT");  // Στείλε οποιαδήποτε εντολή για να ξυπνήσει
-    delay(400);
+    delay(1000);
     simSerial.println("AT+CSCLK=0");
     delay(1000);
   
@@ -55,5 +47,4 @@ void wakeUpSIM800L() {
       }
     }
     Serial.println("No response from SIM800L. Retrying...");
-    // wakeUpSIM800L();
   }

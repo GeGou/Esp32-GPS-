@@ -7,7 +7,7 @@
 #include <HardwareSerial.h>
 #define TINY_GSM_MODEM_SIM800
 #include <TinyGsmClient.h>
-#include "config.h"
+#include <config.h>
 
 void connectToMQTT() {
     mqttClient.setServer(MQTT_BROKER, MQTT_PORT);

@@ -1,4 +1,5 @@
 #include "WiFiManager.h"
+#include <WiFi.h>
 
 void connectToWiFi() {
     WiFi.begin("your-SSID", "your-PASSWORD");

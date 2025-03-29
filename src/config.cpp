@@ -1,5 +1,4 @@
 #include <config.h>
-
 #include <Arduino.h>
 // #include <WiFi.h>
 #include <BLEDevice.h>

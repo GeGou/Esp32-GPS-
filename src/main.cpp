@@ -14,63 +14,11 @@
 #include <MQTTManager.h>
 #include <WiFiManager.h>
 
-// put function declarations here:
-void publishGPSData(float, float, float);
+// // put function declarations here:
 void print_wakeup_reason();
-void publishITagStatus(bool);
-void connectToWiFi();
-void connectToMQTT();
-void batteryPercentage();
-bool scanForBLE();
-void connectToGSM();
-void wakeUpSIM800L();
-void callback(char *, byte *, unsigned int);
 
-
-// #define uS_TO_S_FACTOR 1000000ULL // Conversion factor for micro seconds to seconds
-// #define SLEEP_TIME  5 * 60 * 1000000ULL   // Time ESP32 will go to sleep (in seconds)
-
+// Global Variables
 RTC_DATA_ATTR int bootCount = 0;  // counting the times that esp32 wakes up
-
-// #define GSM_RX 6   // SIM800 TX -> ESP32 GPIO
-// #define GSM_TX 7   // SIM800 RX -> ESP32 GPIO
-// #define GSM_DTR 3  // SIM800 DTR -> ESP32 GPIO GPIO2
-// #define GPS_RX 20   // GPS 6M NEO TX -> ESP32 RX
-// #define GPS_TX 21   // GPS 6M NEO RX -> ESP32 TX
-// #define WAKEUP_PIN 2
-// #define BATTERY_PIN 0 // GPIO0 for battery status via ADC
-// #define SCAN_TIME 5  // Χρόνος σάρωσης BLE (σε δευτερόλεπτα)
-// #define PUBLISH_INTERVAL 10000  // 10 δευτερόλεπτα
-// #define GSM_BAUD 115200
-// #define GPS_BAUD 9600
-// #define ITAG_MAC_ADDRESS "ff:ff:c2:11:ec:17" // iTag's MAC address
-
-// // UARTs initialization
-// TinyGPSPlus gps;
-// HardwareSerial gpsSerial(0);  // Hardware Serial 0 for GPS
-// HardwareSerial simSerial(1);  // Hardware Serial 0 for SIM800L
-
-// TinyGsm modem(simSerial);
-// TinyGsmClient client(modem);  // when using GSM
-// // WiFiClient wifiClient;  // when using WiFi
-// PubSubClient mqttClient(client);  // when using GSM
-// // PubSubClient mqttClient(wifiClient);  // when using WiFi
-
-// MQTT Settings
-const char* mqttBroker = "homenetwork123.duckdns.org"; // MQTT broker IP
-const int mqttPort = 1883; // MQTT Port (1883)
-const char* mqttUser = "mqtt_user"; // MQTT Username (optional)
-const char* mqttPassword = "mqtt_pass"; // MQTT Password(optional)
-
-// WiFi Settings
-const char* ssid = "FREE_INTERNET 2.1";     // WiFi SSID
-const char* password = "paliggenesias_13";  // WiFi password
-
-// MQTT Topics
-const char* gpsTopic = "home/gps_data";
-const char* itagTopic = "home/itag_status";
-const char* batteryTopic = "home/battery_status";
-
 volatile unsigned long lastLowTime = 0;  // Time when the pin went LOW
 volatile bool isCounting = false;        // If the pin is counting
 
@@ -109,7 +57,7 @@ void setup() {
   pinMode(GSM_DTR, OUTPUT);  // Setting DTR pin as OUTPUT
   digitalWrite(GSM_DTR, HIGH);  // Making DTR pin HIGH
 
-  simSerial.begin(GSM_BAUD, SERIAL_8N1, GSM_RX, GSM_TX);
+  // simSerial.begin(GSM_BAUD, SERIAL_8N1, GSM_RX, GSM_TX);
 
   // WiFi connection
   // connectToWiFi();
@@ -123,7 +71,7 @@ void setup() {
   // Add Interrupt to Wakeup_pin (detecting status change)
   attachInterrupt(digitalPinToInterrupt(WAKEUP_PIN), wakeupISR, CHANGE);
 
-  Serial.println("ESP32 is awake!");
+  Serial.println("Esp32 is awake!");
 
   wakeUpSIM800L();
 
@@ -194,79 +142,6 @@ void setup() {
 void loop() {
 }
 
-bool scanForBLE() {
-  Serial.println("Starting BLE scan...");
-
-  BLEDevice::init("");
-  BLEScan* pBLEScan = BLEDevice::getScan(); // Create a BLE scan object
-  pBLEScan->setActiveScan(true);   // Active scanning for more data
-  pBLEScan->setInterval(100);      // Scan interval
-  pBLEScan->setWindow(99);         // Scan window (must be <= interval)
-  
-  BLEScanResults scanResults = pBLEScan->start(SCAN_TIME, false);
-  bool iTagDetected = false;
-
-  for (int i = 0; i < scanResults.getCount(); i++) {
-    BLEAdvertisedDevice device = scanResults.getDevice(i);
-
-    // Έλενχος για το αν η συσκευή που βρέθηκε ταιριάζει με το iTag MAC address
-    if (device.getAddress().toString() == ITAG_MAC_ADDRESS && device.getRSSI() > -80) {
-      Serial.println("iTag detected!");
-      Serial.print("Device RSSI: ");
-      Serial.println(device.getRSSI());
-      iTagDetected = true;
-      break;
-    }
-  }
-
-  BLEDevice::deinit();
-  return iTagDetected;
-}
-
-void publishGPSData(float latitude, float longitude, float speed) {
-
-  if (!mqttClient.connected()) {
-    connectToMQTT(); // Reconnection if the connection to MQTT is lost
-  }
-  
-  // Creating a JSON message
-  String payload = "{\"latitude\":";
-  payload += String(latitude, 6);
-  payload += ",\"longitude\":";
-  payload += String(longitude, 6);
-  payload += ",\"speed\":";
-  payload += String(speed, 4);
-  payload += "}";
-
-  // Publish in the topic
-  const char* gpsTopic = "home/gps_data"; // The topic we will publish the GPS data
-  if (mqttClient.publish(gpsTopic, payload.c_str())) {
-    Serial.println("GPS data published successfully via MQTT:");
-    Serial.println(payload);
-  } else {
-    Serial.println("Failed to publish GPS data via MQTT.");
-  }
-}
-
-void publishITagStatus(bool status) {
-  if (!mqttClient.connected()) {
-    connectToMQTT(); // Reconnection if the connection to MQTT is lost
-  }
-  
-  // Creating a JSON message
-  String payload = "{\"itag_detected\":";
-  payload += (status ? "true" : "false");
-  payload += "}";
-
-  // Publish to topic "home/itag_status"
-  const char* itagTopic = "home/itag_status";
-  if (mqttClient.publish(itagTopic, payload.c_str())) {
-    Serial.println("iTag status was successfully published via MQTT:");
-    Serial.println(payload);
-  } else {
-    Serial.println("Failed to publish iTag status via MQTT.");
-  }
-}
 
 void publishBatteryStatus(float batteryPercentage) {
   if (!mqttClient.connected()) {
@@ -310,46 +185,7 @@ void batteryPercentage() {
   publishBatteryStatus(percentage);
 }
 
-void connectToMQTT() {
-  mqttClient.setServer(mqttBroker, mqttPort);
-  mqttClient.setCallback(callback);
 
-  while (!mqttClient.connected()) {
-    
-    Serial.println("Connection to MQTT Broker ...");
-    if (mqttClient.connect("ESP32Client", mqttUser, mqttPassword)) {
-      Serial.println("Connected to MQTT broker");
-      mqttClient.subscribe(gpsTopic);  // Subscribe to topic
-      mqttClient.subscribe(itagTopic);
-      mqttClient.subscribe(batteryTopic);
-    } else {
-      Serial.print("Failed to connect to MQTT broker. Error: ");
-      Serial.println(mqttClient.state());
-      delay(2000);
-    }
-  }
-}
-
-void connectToGSM() {
-  Serial.println("Connecting to GSM...");
-  simSerial.begin(GSM_BAUD, SERIAL_8N1, GSM_RX, GSM_TX);
-
-  // Προσπάθεια επανεκκίνησης του modem μέχρι να επιτύχει
-  while (!modem.restart()) {
-    Serial.println("Failed to restart the modem! Retrying...");
-    delay(5000);  // Αναμονή πριν την επόμενη προσπάθεια
-  }
-
-  Serial.println("Modem restarted successfully.");
-
-  // Προσπάθεια σύνδεσης στο GPRS μέχρι να επιτύχει
-  while (!modem.gprsConnect(APN, GPRS_USER, GPRS_PASS)) {
-    Serial.println("Failed to connect to GPRS. Retrying...");
-    delay(5000);  // Αναμονή πριν την επόμενη προσπάθεια
-  }
-
-  Serial.println("Connected to GPRS.");
-}
 
 // Function to print the wakeup reason for ESP32
 void print_wakeup_reason() {
@@ -367,37 +203,3 @@ void print_wakeup_reason() {
   }
 }
 
-// Callback function to handle incoming MQTT messages
-void callback(char* topic, byte* payload, unsigned int length) {
-  String message;
-  for (unsigned int i = 0; i < length; i++) {
-    message += (char)payload[i];
-  }
-  
-  Serial.print("Received MQTT message: ");
-  Serial.println(message);
-
-  if (message == "stop") {
-    stopPublishing = true;
-    Serial.println("Stopping GPS data transmission.");
-  }
-}
-
-void wakeUpSIM800L() {
-  Serial.println("Waking up SIM800L...");
-  simSerial.println("AT");  // Στείλε οποιαδήποτε εντολή για να ξυπνήσει
-  delay(400);
-  simSerial.println("AT+CSCLK=0");
-  delay(1000);
-
-  while (simSerial.available()) {
-    String response = simSerial.readString();
-    Serial.println("SIM800L: " + response);
-    if (response.indexOf("OK") != -1) {
-      Serial.println("SIM800L woke up");
-      return;
-    }
-  }
-  Serial.println("No response from SIM800L. Retrying...");
-  // wakeUpSIM800L();
-}

@@ -1,6 +1,3 @@
-// #include <GPSManager.h>
-// #include <HardwareSerial.h>
-// #include <TinyGPSPlus.h>
 #include <PubSubClient.h>
 #include <MQTTManager.h>
 #include <config.h>

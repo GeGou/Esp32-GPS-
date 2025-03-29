@@ -5,6 +5,6 @@
 
 void connectToMQTT();
 void publishITagStatus(bool status);
-void callback(char* topic, byte* message, unsigned int length);
+void callback(char* , byte* , unsigned int );
 
 #endif
