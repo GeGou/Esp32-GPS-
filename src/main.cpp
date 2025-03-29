@@ -6,8 +6,13 @@
 #include <BLEDevice.h>
 #include <BLEScan.h>
 #include <HardwareSerial.h>
-#define TINY_GSM_MODEM_SIM800
-#include <TinyGsmClient.h>
+
+#include <config.h>
+#include <BLEManager.h>
+#include <GPSManager.h>
+#include <GSMManager.h>
+#include <MQTTManager.h>
+#include <WiFiManager.h>
 
 // put function declarations here:
 void publishGPSData(float, float, float);
@@ -23,44 +28,39 @@ void callback(char *, byte *, unsigned int);
 
 
 // #define uS_TO_S_FACTOR 1000000ULL // Conversion factor for micro seconds to seconds
-#define SLEEP_TIME  5 * 60 * 1000000ULL   // Time ESP32 will go to sleep (in seconds)
+// #define SLEEP_TIME  5 * 60 * 1000000ULL   // Time ESP32 will go to sleep (in seconds)
 
 RTC_DATA_ATTR int bootCount = 0;  // counting the times that esp32 wakes up
 
-#define GSM_RX 6   // SIM800 TX -> ESP32 GPIO
-#define GSM_TX 7   // SIM800 RX -> ESP32 GPIO
-#define GSM_DTR 3  // SIM800 DTR -> ESP32 GPIO GPIO2
-#define GPS_RX 20   // GPS 6M NEO TX -> ESP32 RX
-#define GPS_TX 21   // GPS 6M NEO RX -> ESP32 TX
-#define WAKEUP_PIN 2
-#define BATTERY_PIN 0 // GPIO0 for battery status via ADC
-#define SCAN_TIME 5  // Χρόνος σάρωσης BLE (σε δευτερόλεπτα)
-#define PUBLISH_INTERVAL 10000  // 10 δευτερόλεπτα
-#define GSM_BAUD 115200
-#define GPS_BAUD 9600
-#define ITAG_MAC_ADDRESS "ff:ff:c2:11:ec:17" // iTag's MAC address
+// #define GSM_RX 6   // SIM800 TX -> ESP32 GPIO
+// #define GSM_TX 7   // SIM800 RX -> ESP32 GPIO
+// #define GSM_DTR 3  // SIM800 DTR -> ESP32 GPIO GPIO2
+// #define GPS_RX 20   // GPS 6M NEO TX -> ESP32 RX
+// #define GPS_TX 21   // GPS 6M NEO RX -> ESP32 TX
+// #define WAKEUP_PIN 2
+// #define BATTERY_PIN 0 // GPIO0 for battery status via ADC
+// #define SCAN_TIME 5  // Χρόνος σάρωσης BLE (σε δευτερόλεπτα)
+// #define PUBLISH_INTERVAL 10000  // 10 δευτερόλεπτα
+// #define GSM_BAUD 115200
+// #define GPS_BAUD 9600
+// #define ITAG_MAC_ADDRESS "ff:ff:c2:11:ec:17" // iTag's MAC address
 
-// UARTs initialization
-TinyGPSPlus gps;
-HardwareSerial gpsSerial(0);  // Hardware Serial 0 for GPS
-HardwareSerial simSerial(1);  // Hardware Serial 0 for SIM800L
+// // UARTs initialization
+// TinyGPSPlus gps;
+// HardwareSerial gpsSerial(0);  // Hardware Serial 0 for GPS
+// HardwareSerial simSerial(1);  // Hardware Serial 0 for SIM800L
 
-TinyGsm modem(simSerial);
-TinyGsmClient client(modem);  // when using GSM
-// WiFiClient wifiClient;  // when using WiFi
-PubSubClient mqttClient(client);  // when using GSM
-// PubSubClient mqttClient(wifiClient);  // when using WiFi
+// TinyGsm modem(simSerial);
+// TinyGsmClient client(modem);  // when using GSM
+// // WiFiClient wifiClient;  // when using WiFi
+// PubSubClient mqttClient(client);  // when using GSM
+// // PubSubClient mqttClient(wifiClient);  // when using WiFi
 
 // MQTT Settings
 const char* mqttBroker = "homenetwork123.duckdns.org"; // MQTT broker IP
 const int mqttPort = 1883; // MQTT Port (1883)
 const char* mqttUser = "mqtt_user"; // MQTT Username (optional)
 const char* mqttPassword = "mqtt_pass"; // MQTT Password(optional)
-
-// GPRS Settings
-const char* GPRS_USER = "";  // Empty if not required
-const char* GPRS_PASS = "";  // Empty if not required
-const char* APN = "internet";  // "internet" for Vodafone
 
 // WiFi Settings
 const char* ssid = "FREE_INTERNET 2.1";     // WiFi SSID
@@ -74,7 +74,7 @@ const char* batteryTopic = "home/battery_status";
 volatile unsigned long lastLowTime = 0;  // Time when the pin went LOW
 volatile bool isCounting = false;        // If the pin is counting
 
-bool stopPublishing = false;  // Variable to stop publishing GPS data
+// bool stopPublishing = false;  // Variable to stop publishing GPS data
 
 // Function to handle the interrupt, starts the countdown
 void IRAM_ATTR wakeupISR() {
@@ -115,7 +115,7 @@ void setup() {
   // connectToWiFi();
 
   // Setting Battery Pin
-  pinMode(BATTERY_PIN, INPUT);
+  pinMode(BATTERY_STATUS_PIN, INPUT);
 
   // Setting Wakeup Pin
   pinMode(WAKEUP_PIN, INPUT_PULLUP);
@@ -181,6 +181,13 @@ void setup() {
       delay(500);
     }
     Serial.println("Exited GPS loop. Waiting for new command...");
+  }
+  else {
+    Serial.println("iTag detected. Going to deep sleep...");
+    modem.gprsDisconnect();
+    esp_deep_sleep_enable_gpio_wakeup(1 << WAKEUP_PIN, ESP_GPIO_WAKEUP_GPIO_HIGH);
+    esp_deep_sleep_start();
+    Serial.println("This will never be printed");
   }
 }
 
@@ -286,7 +293,7 @@ void batteryPercentage() {
   const float batteryMaxVoltage = 4.2; // Μέγιστη τάση μπαταρίας
   const float batteryMinVoltage = 3.0; // Ελάχιστη τάση μπαταρίας (όταν θεωρείται "άδεια")
   
-  int adcValue = analogRead(BATTERY_PIN); // Ανάγνωση ADC
+  int adcValue = analogRead(BATTERY_STATUS_PIN); // Ανάγνωση ADC
   float voltage = (adcValue / 4095.0) * referenceVoltage * 2; // Υπολογισμός τάσης (με διαιρέτη τάσης)
   
   // Μετατροπή τάσης σε ποσοστό
@@ -302,18 +309,6 @@ void batteryPercentage() {
 
   publishBatteryStatus(percentage);
 }
-
-// // Συνάρτηση για σύνδεση στο WiFi
-// void connectToWiFi() {
-//   WiFi.begin(ssid, password);
-  
-//   // Περίμενε μέχρι να συνδεθεί στο WiFi
-//   while (WiFi.status() != WL_CONNECTED) {
-//     delay(500);
-//     Serial.println("Σύνδεση στο WiFi...");
-//   }
-//   Serial.println("Συνδεδεμένο στο WiFi");
-// }
 
 void connectToMQTT() {
   mqttClient.setServer(mqttBroker, mqttPort);
