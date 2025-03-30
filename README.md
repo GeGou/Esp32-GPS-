@@ -18,9 +18,35 @@ Make sure you have the following installed:
 - [PlatformIO](https://platformio.org/) (if using ESP32)
 - Arduino IDE (if applicable)
 
+
+
+
+---
+
+```markdown
+# Project Name 🚀
+
+> A brief description of your project in one or two sentences.
+
+![GitHub License](https://img.shields.io/github/license/yourusername/your-repo)
+![GitHub stars](https://img.shields.io/github/stars/yourusername/your-repo)
+![GitHub forks](https://img.shields.io/github/forks/yourusername/your-repo)
+
+## ✨ Features
+- 🔥 Feature 1
+- ⚡ Feature 2
+- 🌍 Feature 3
+
+## 📦 Installation
+
+### Prerequisites
+Make sure you have the following installed:
+- [PlatformIO](https://platformio.org/) (if using ESP32)
+- Arduino IDE (if applicable)
+
 ### Steps
 ```sh
-git clone https://github.com/GeGou/Esp32-GPS-.git
+git clone https://github.com/yourusername/your-repo.git
 cd your-repo
 platformio run --target upload  # If using PlatformIO
 ```
@@ -32,7 +58,7 @@ platformio run --target upload  # If using PlatformIO
 4. Open the serial monitor to see logs.
 
 ## 📁 Project Structure
-
+```
 📦 your-repo
  ┣ 📂 include          # Header files (.h)
  ┣ 📂 lib              # Custom libraries
@@ -43,14 +69,14 @@ platformio run --target upload  # If using PlatformIO
  ┣ 📜 platformio.ini   # PlatformIO configuration
  ┣ 📜 README.md        # This file
  ┗ 📜 LICENSE          # License file
+```
 
 ## 🛠 Configuration
 Modify the `include/config.h` file to match your setup:
-
+```cpp
 #define WIFI_SSID "YourWiFi"
 #define WIFI_PASSWORD "YourPassword"
-
-
+```
 
 ## 🤝 Contributing
 Want to contribute? Follow these steps:
