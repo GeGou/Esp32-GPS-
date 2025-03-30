@@ -1,15 +1,14 @@
 # Esp32-GPS- 🚀
 
-> GPS project using Esp32 and GSM communication via MQTT Broker. It also can detected a ble tag to know when to sent the GPS Data and when not to.
+> GPS project using Esp32 (especially Xiao Esp32-C3) and GSM communication via MQTT Broker. It also can detected a BLE tag to know when to sent the GPS Data and when not to.
 
 ![GitHub License](https://img.shields.io/github/license/GeGou/Esp32-GPS-)
 ![GitHub stars](https://img.shields.io/github/stars/GeGou/Esp32-GPS-)
 ![GitHub forks](https://img.shields.io/github/forks/GeGou/Esp32-GPS-)
 
 ## ✨ Features
-- 🔥 Feature 1
-- ⚡ Feature 2 
-- 🌍 Feature 3
+- It only wakes up when the tilt sensor receives vibration, for better battery management.
+- It can detect every BLE tag based on tag's mac address.
 
 ## 📦 Installation
 
@@ -20,13 +19,13 @@ Make sure you have the following installed:
 
 ## 🚀 Usage
 1. Connect the device to power.
-2. Modify `config.h` for WiFi/MQTT settings.
+2. Modify `config.h` for GPRS/MQTT settings.
 3. Upload the code to ESP32.
 4. Open the serial monitor to see logs.
 
 ## 📁 Project Structure
 ```
-📦 your-repo
+📦 GeGou/Esp32-GPS-
  ┣ 📂 include          # Header files (.h)
  ┣ 📂 lib              # Custom libraries
  ┣ 📂 src              # Main source code
@@ -58,5 +57,5 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 ## 📞 Support
 If you have any questions, create an **Issue** or reach out via:
-- 📧 Email: your.email@example.com
-- 💬 Discord: your-discord-server
+- 📧 Email:
+- 💬 Discord:
